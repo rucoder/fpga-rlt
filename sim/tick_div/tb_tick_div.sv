@@ -25,7 +25,7 @@ module tb_tick_div;
     );
 
     initial begin
-        $dumpfile("tb_tick_div.vcd");
+        $dumpfile("tb_tick_div.fst");
         $dumpvars(0, tb_tick_div);
 
         rst_n    = 0;

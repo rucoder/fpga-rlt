@@ -22,7 +22,7 @@ module tb_sync_2ff;
     );
 
     initial begin
-        $dumpfile("tb_sync_2ff.vcd");
+        $dumpfile("tb_sync_2ff.fst");
         $dumpvars(0, tb_sync_2ff);
 
         // init

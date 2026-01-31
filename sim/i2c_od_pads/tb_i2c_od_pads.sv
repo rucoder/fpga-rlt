@@ -32,7 +32,7 @@ module tb_i2c_od_pads;
     );
 
     initial begin
-        $dumpfile("tb_i2c_od_pads.vcd");
+        $dumpfile("tb_i2c_od_pads.fst");
         $dumpvars(0, tb_i2c_od_pads);
 
         rst_n = 0;

@@ -7,7 +7,7 @@ BUILD_DIR:=build
 VERILATOR_OUT_DIR:=$(BUILD_DIR)/verilator
 SBY_OUT_DIR:=$(BUILD_DIR)/formal
 
-VERILATOR_OPTS_COMMON:=--Wall --timing --trace -cc -sv \
+VERILATOR_OPTS_COMMON:=--Wall --timing --trace-fst -cc -sv \
 	-exe --binary --build -O3 \
 	--Mdir $(VERILATOR_OUT_DIR) \
 	--verilate-jobs $(nproc) --build-jobs $(nproc) \
@@ -189,4 +189,4 @@ help:
 	@echo "      These are NOT called .verilator_config!"
 
 .PHONY: all
-all: lint sim-tick-div sim-sync-2ff sim-i2c-od-pads sby-tick-div sby-sync-2ff
+all: sim-tick-div sim-sync-2ff sim-i2c-od-pads sby-tick-div sby-sync-2ff

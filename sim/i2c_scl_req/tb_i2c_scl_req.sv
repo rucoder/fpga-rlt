@@ -49,7 +49,7 @@ module tb_i2c_scl_req;
     );
 
     initial begin
-        $dumpfile("tb_i2c_scl_req.vcd");
+        $dumpfile("tb_i2c_scl_req.fst");
         $dumpvars(0, tb_i2c_scl_req);
 
         rst_n          = 0;
