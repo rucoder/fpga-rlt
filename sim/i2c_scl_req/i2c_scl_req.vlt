@@ -1,0 +1,13 @@
+// DESCRIPTION: Verilator output: Waivers generated with --waiver-output
+
+`verilator_config
+
+// Below are suggested waivers. You have three options:
+//   1. Fix the reason for the linter warning in the Verilog sources
+//   2. Keep the waiver permanently if you are sure it is okay
+//   3. Keep the waiver temporarily to suppress the output
+
+lint_off -rule UNUSEDSIGNAL -file "*sim/i2c_scl_req/tb_i2c_scl_req.sv" -match "Signal is not used: 'sda_sync'*"
+lint_off -rule UNUSEDSIGNAL -file "*sim/i2c_scl_req/tb_i2c_scl_req.sv" -match "Signal is not used: 'scl_high_ok'*"
+lint_off -rule UNUSEDSIGNAL -file "*rtl/i2c_scl_req.sv" -match "Signal is not used: 'clk'*"
+lint_off -rule UNUSEDSIGNAL -file "*rtl/i2c_scl_req.sv" -match "Signal is not used: 'rst_n'*"

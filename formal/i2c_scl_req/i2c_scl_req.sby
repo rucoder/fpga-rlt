@@ -1,0 +1,14 @@
+[options]
+mode prove
+depth 10
+
+[engines]
+smtbmc z3
+
+[script]
+read_verilog -sv i2c_scl_req.sv i2c_scl_req_formal_top.sv
+prep -top i2c_scl_req_formal_top
+
+[files]
+rtl/i2c_scl_req.sv
+formal/i2c_scl_req/i2c_scl_req_formal_top.sv
