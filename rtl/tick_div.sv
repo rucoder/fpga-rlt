@@ -29,6 +29,9 @@ module tick_div #(
     output logic [W-1:0] cnt    // exported for waveform/debug
 );
 
+    logic unused_zero;
+    assign unused_zero = &{1'b0, prescale[(W-1):0]}; // prevent lint about unused prescale bits if W < max
+
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
             cnt  <= '0;

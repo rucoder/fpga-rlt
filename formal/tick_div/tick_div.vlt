@@ -1,0 +1,14 @@
+// DESCRIPTION: Verilator output: Waivers generated with --waiver-output
+
+`verilator_config
+
+// Below are suggested waivers. You have three options:
+//   1. Fix the reason for the linter warning in the Verilog sources
+//   2. Keep the waiver permanently if you are sure it is okay
+//   3. Keep the waiver temporarily to suppress the output
+
+lint_off -rule DECLFILENAME -file "*formal/tick_div/tick_div_formal_top.sv" -match "Filename 'tick_div_formal_top' does not match MODULE name: 'tick_div_props'*"
+lint_off -rule UNDRIVEN -file "*formal/tick_div/tick_div_formal_top.sv" -match "Signal is not driven: 'enable'*"
+lint_off -rule UNDRIVEN -file "*formal/tick_div/tick_div_formal_top.sv" -match "Signal is not driven: 'prescale'*"
+lint_off -rule UNUSEDSIGNAL -file "*formal/tick_div/tick_div_formal_top.sv" -match "Signal is not used: 'tick'*"
+lint_off -rule UNUSEDSIGNAL -file "*formal/tick_div/tick_div_formal_top.sv" -match "Signal is not used: 'cnt'*"

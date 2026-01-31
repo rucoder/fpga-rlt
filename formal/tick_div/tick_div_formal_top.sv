@@ -73,7 +73,7 @@ module tick_div_props #(
 endmodule
 
 
-module tick_div_formal;
+module tick_div_formal_top;
 
     localparam int W = 16;
 

@@ -1,0 +1,14 @@
+[options]
+mode prove
+depth 20
+
+[engines]
+smtbmc z3
+
+[script]
+read_verilog -sv sync_2ff.sv sync_2ff_formal_top.sv
+prep -top sync_2ff_formal_top
+
+[files]
+rtl/sync_2ff.sv
+formal/sync_2ff/sync_2ff_formal_top.sv
