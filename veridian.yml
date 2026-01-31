@@ -1,0 +1,60 @@
+# Veridian Language Server Configuration for i2c_master project
+# Documentation: https://github.com/vivekmalneedi/veridian
+
+# List of directories with header files (include directories)
+include_dirs:
+  - rtl
+  - sim
+
+# List of directories to recursively search for SystemVerilog/Verilog sources
+source_dirs:
+  - rtl
+  - sim
+  - formal
+
+# If true, recursively search the working directory for files to run diagnostics on
+# Set to true to lint both RTL and testbenches
+auto_search_workdir: true
+
+# Verible tool configuration
+verible:
+  # verible-verilog-syntax configuration for syntax checking
+  syntax:
+    enabled: true
+    path: "verible-verilog-syntax"
+    args:
+      - --rules=-line-length
+      - --rules=-module-filename
+      - --rules=-parameter-name-style
+
+  # verible-verilog-format configuration for formatting
+  format:
+    enabled: true
+    path: "verible-verilog-format"
+    args:
+      - --indentation_spaces=4
+      - --line_break_penalty=2
+      - --over_column_limit_penalty=100
+
+# Verilator configuration for linting
+# Note: Per-file lint rules are configured in .vlt waiver files
+# RTL is linted via testbenches and formal using -I, not standalone
+verilator:
+  syntax:
+    enabled: true
+    path: "verilator"
+    args:
+      - --lint-only
+      - -sv
+      - --timing
+      - -Wall
+      - -I./rtl
+      - -I./sim
+      - sim/tick_div/tick_div.vlt
+      - sim/sync_2ff/sync_2ff.vlt
+      - sim/i2c_od_pads/i2c_od_pads.vlt
+      - formal/tick_div/tick_div.vlt
+      - formal/sync_2ff/sync_2ff.vlt
+
+# Set log level for debugging (Error|Warn|Info|Debug|Trace)
+log_level: Info
