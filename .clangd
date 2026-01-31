@@ -1,0 +1,8 @@
+CompileFlags:
+  Add:
+    - -I/usr/share/verilator/include
+    - -I/usr/share/verilator/include/vltstd
+    - -Iobj_dir
+    - -Isim
+    - -DVM_TRACE=1
+    - -DVM_TRACE_VCD=1

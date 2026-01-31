@@ -1,0 +1,7 @@
+[
+  {
+    "directory": "/home/mikem/kicad/projects/fpga/amaranth",
+    "command": "g++ -I. -Iobj_dir -Isim -I/usr/share/verilator/include -I/usr/share/verilator/include/vltstd -DVM_TRACE=1 -DVM_TRACE_VCD=1 -c sim/tb_wm8731_init.cpp",
+    "file": "sim/tb_wm8731_init.cpp"
+  }
+]
