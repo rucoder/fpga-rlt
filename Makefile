@@ -6,6 +6,11 @@ export PATH := $(OSSCAD)/bin:$(PATH)
 BUILD_DIR:=build
 VERILATOR_OUT_DIR:=$(BUILD_DIR)/verilator
 SBY_OUT_DIR:=$(BUILD_DIR)/formal
+LINT_DIR:=$(BUILD_DIR)/lint
+
+# Stamp files for dependency tracking
+LINT_STAMP:=$(LINT_DIR)/.stamp
+LINT_DEPFILE:=$(LINT_DIR)/gen.d
 
 VERILATOR_OPTS_COMMON:=--Wall --timing --trace-fst -cc -sv \
 	-exe --binary --build -O3 \
@@ -52,95 +57,42 @@ sby-%: formal/$$(call dash-to-underscore,$$*)/$$(call dash-to-underscore,$$*).sb
 	@mkdir -p $(SBY_OUT_DIR)
 	sby -f -d $(SBY_OUT_DIR)/$(MODULE) formal/$(MODULE)/$(MODULE).sby
 
-# Lint targets using Verilator (matches veridian.yml config)
-# Note: We don't lint RTL files standalone - they're linted via testbenches and formal
+# ============================================================================
+# Linting with auto-generated filelists
+# ============================================================================
+
+# Discover all HDL sources for dependency tracking
+RTL_SRCS := $(shell find rtl -type f \( -name '*.sv' -o -name '*.v' \) 2>/dev/null)
+SIM_SRCS := $(shell find sim -type f \( -name '*.sv' -o -name '*.v' \) 2>/dev/null)
+FORMAL_SRCS := $(shell find formal -type f \( -name '*.sv' -o -name '*.v' \) 2>/dev/null)
+ALL_HDL_SRCS := $(RTL_SRCS) $(SIM_SRCS) $(FORMAL_SRCS)
+
+# Generate lint filelists (using Python script)
+$(LINT_STAMP): $(ALL_HDL_SRCS) tools/gen_lint_filelists.py lint_config.yml | $(LINT_DIR)
+	./tools/gen_lint_filelists.py --build-dir $(BUILD_DIR) --stamp $(LINT_STAMP) --depfile $(LINT_DEPFILE)
+
+$(LINT_DIR):
+	mkdir -p $(LINT_DIR)
+
+# Include dependency file if it exists (for make-based rebuilds)
+-include $(LINT_DEPFILE)
+
+.PHONY: lint-lists
+lint-lists: $(LINT_STAMP)
+
 .PHONY: lint
-lint: lint-tb lint-formal
+lint: $(LINT_STAMP)
+	./tools/lint_verilator.py
 
-.PHONY: lint-tb
-lint-tb:
-	@echo "Linting testbench files..."
-	@find sim -mindepth 1 -maxdepth 1 -type d | while read dir; do \
-		module=$$(basename $$dir); \
-		tb_file=$$dir/tb_$$module.sv; \
-		waiver=$$dir/$$module.vlt; \
-		if [ -f "$$tb_file" ]; then \
-			echo "  Checking $$tb_file"; \
-			if [ -f "$$waiver" ]; then \
-				echo "    Using waiver file: $$waiver"; \
-			fi; \
-			verilator $(VERILATOR_LINT_OPTS) \
-				--top-module tb_$$module \
-				$$([ -f "$$waiver" ] && echo "$$waiver") \
-				$$tb_file $(RTL_SOURCES) || exit 1; \
-		fi; \
-	done
-	@echo "✓ All testbench files passed lint checks"
-
-.PHONY: lint-formal
-lint-formal:
-	@echo "Linting formal verification files..."
-	@find formal -mindepth 1 -maxdepth 1 -type d | while read dir; do \
-		module=$$(basename $$dir); \
-		formal_file=$$dir/$${module}_formal_top.sv; \
-		waiver=$$dir/$$module.vlt; \
-		if [ -f "$$formal_file" ]; then \
-			echo "  Checking $$formal_file"; \
-			if [ -f "$$waiver" ]; then \
-				echo "    Using waiver file: $$waiver"; \
-			fi; \
-			verilator $(VERILATOR_LINT_OPTS) \
-				--top-module $${module}_formal_top \
-				$$([ -f "$$waiver" ] && echo "$$waiver") \
-				$$formal_file $(RTL_SOURCES) || exit 1; \
-		fi; \
-	done
-	@echo "✓ All formal verification files passed lint checks"
-
-.PHONY: lint-all
-lint-all: lint-tb lint-formal
-
-# Generate waiver files using Verilator's --waiver-output
+# Waiver file management using Python script
+# Waivers are stored per-module: sim/<module>/<module>.vlt, formal/<module>/<module>.vlt
 .PHONY: generate-waivers
-generate-waivers: generate-tb-waivers generate-formal-waivers
+generate-waivers: $(LINT_STAMP)
+	./tools/manage_waivers.py generate
 
-.PHONY: generate-tb-waivers
-generate-tb-waivers:
-	@echo "Generating testbench waiver files (one per subfolder)..."
-	@find sim -mindepth 1 -maxdepth 1 -type d | while read dir; do \
-		module=$$(basename $$dir); \
-		tb_file=$$dir/tb_$$module.sv; \
-		if [ -f "$$tb_file" ]; then \
-			echo "  Processing $$tb_file..."; \
-			verilator $(VERILATOR_LINT_OPTS) \
-				--top-module tb_$$module \
-				$$tb_file $(RTL_SOURCES) \
-				--waiver-output $$dir/$$module.vlt 2>&1 || true; \
-			if [ -f $$dir/$$module.vlt ]; then \
-				echo "    ✓ Generated $$dir/$$module.vlt"; \
-			fi; \
-		fi; \
-	done
-	@echo "✓ Generated testbench waiver files"
-
-.PHONY: generate-formal-waivers
-generate-formal-waivers:
-	@echo "Generating formal waiver files (one per subfolder)..."
-	@find formal -mindepth 1 -maxdepth 1 -type d | while read dir; do \
-		module=$$(basename $$dir); \
-		formal_file=$$dir/$${module}_formal_top.sv; \
-		if [ -f "$$formal_file" ]; then \
-			echo "  Processing $$formal_file..."; \
-			verilator $(VERILATOR_LINT_OPTS) \
-				--top-module $${module}_formal_top \
-				$$formal_file $(RTL_SOURCES) \
-				--waiver-output $$dir/$$module.vlt 2>&1 || true; \
-			if [ -f $$dir/$$module.vlt ]; then \
-				echo "    ✓ Generated $$dir/$$module.vlt"; \
-			fi; \
-		fi; \
-	done
-	@echo "✓ Generated formal waiver files"
+.PHONY: list-waivers
+list-waivers:
+	./tools/manage_waivers.py list
 
 .PHONY: clean
 clean:
@@ -148,10 +100,7 @@ clean:
 
 .PHONY: clean-waivers
 clean-waivers:
-	@echo "Removing generated waiver files..."
-	@find sim -mindepth 2 -name "*.vlt" -type f -delete
-	@find formal -mindepth 2 -name "*.vlt" -type f -delete
-	@echo "✓ Waiver files removed"
+	./tools/manage_waivers.py clean
 
 .PHONY: help
 help:
@@ -164,16 +113,13 @@ help:
 	@echo "  sby-<module>          - Run formal verification (e.g., sby-tick-div)"
 	@echo ""
 	@echo "Linting:"
-	@echo "  lint                  - Lint testbenches and formal (includes RTL via -I)"
-	@echo "  lint-tb               - Lint testbench files (includes RTL)"
-	@echo "  lint-formal           - Lint formal verification files (includes RTL)"
-	@echo "  lint-all              - Lint testbench and formal files"
+	@echo "  lint                  - Lint all modules (testbenches + formal)"
+	@echo "  lint-lists            - Generate lint filelists (auto-run by lint)"
 	@echo ""
 	@echo "Waiver Management:"
-	@echo "  generate-waivers        - Generate all waiver files from current warnings"
-	@echo "  generate-tb-waivers     - Generate testbench waiver file (sim/tb.vlt)"
-	@echo "  generate-formal-waivers - Generate formal waiver files (formal/*/module.vlt)"
-	@echo "  clean-waivers           - Remove generated waiver files"
+	@echo "  generate-waivers      - Generate/update all waiver files (preserves commented lines)"
+	@echo "  list-waivers          - List all waiver files"
+	@echo "  clean-waivers         - Remove all waiver files"
 	@echo ""
 	@echo "Build:"
 	@echo "  all                   - Run all simulations and formal verification"
@@ -183,10 +129,10 @@ help:
 	@echo "  sim/*/module.vlt         - Testbench waivers (one per subfolder)"
 	@echo "  formal/*/module.vlt      - Formal waivers (one per subfolder)"
 	@echo ""
-	@echo "Note: RTL is linted via testbenches and formal using -I, not standalone"
-	@echo ""
-	@echo "Note: Verilator uses .vlt files with \`verilator_config directive."
-	@echo "      These are NOT called .verilator_config!"
+	@echo "Notes:"
+	@echo "  - Filelists are auto-generated from rtl/sim/formal directories"
+	@echo "  - Waivers preserve commented lines from git base"
+	@echo "  - Use './tools/manage_waivers.py --help' for more options"
 
 .PHONY: all
-all: sim-tick-div sim-sync-2ff sim-i2c-od-pads sby-tick-div sby-sync-2ff
+all: sim-tick-div sim-sync-2ff sim-i2c-od-pads sim-i2c-bit-prim sby-tick-div sby-sync-2ff sby-i2c-bit-prim

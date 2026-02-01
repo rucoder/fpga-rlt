@@ -1,0 +1,10 @@
+# Linting configuration for i2c_master project
+# This file controls which modules/tops are excluded from linting
+
+# Exclude list: patterns to match against top names or directory names
+# Examples:
+#   - "i2c_bit_prim"     - excludes all tops containing this string
+#   - "i2c_scl_req"      - excludes all tops in i2c_scl_req/ directory
+exclude:
+  - "i2c_bit_prim_formal_top"
+  - "i2c_scl_req_formal_top"

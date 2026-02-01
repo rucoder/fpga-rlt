@@ -1,5 +1,15 @@
 {
+  "typeCheckingMode": "basic",
   "reportGeneralTypeIssues": false,
   "reportUnknownMemberType": false,
   "reportUnknownVariableType": false,
+  "reportUnknownArgumentType": false,
+  "reportUnknownParameterType": false,
+  "reportUnknownLambdaType": false,
+  "reportAny": false,
+  "reportImplicitStringConcatenation": false,
+  "reportMissingTypeStubs": false,
+  "reportUnusedImport": "warning",
+  "reportUnusedVariable": "warning",
+  "reportMissingImports": "error",
 }

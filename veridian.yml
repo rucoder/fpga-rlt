@@ -37,24 +37,18 @@ verible:
       - --over_column_limit_penalty=100
 
 # Verilator configuration for linting
-# Note: Per-file lint rules are configured in .vlt waiver files
-# RTL is linted via testbenches and formal using -I, not standalone
+# Note: We use tools/verilator_multi.py wrapper to lint all discovered tops
+# The wrapper reads pre-generated filelists from build/lint/ (run 'make lint-lists')
+# Waiver files are managed per-module in sim/*/module.vlt and formal/*/module.vlt
 verilator:
   syntax:
     enabled: true
-    path: "verilator"
+    path: "./tools/zed_verilator_wrapper.py"
     args:
       - --lint-only
       - -sv
       - --timing
       - -Wall
-      - -I./rtl
-      - -I./sim
-      - sim/tick_div/tick_div.vlt
-      - sim/sync_2ff/sync_2ff.vlt
-      - sim/i2c_od_pads/i2c_od_pads.vlt
-      - formal/tick_div/tick_div.vlt
-      - formal/sync_2ff/sync_2ff.vlt
 
 # Set log level for debugging (Error|Warn|Info|Debug|Trace)
 log_level: Info
