@@ -1,0 +1,35 @@
+#!/usr/bin/env fish
+# env-setup.fish.example - Environment setup script template for i2c_master FPGA project (Fish shell)
+#
+# Usage:
+#   1. Copy this file: cp env-setup.fish.example env-setup.fish
+#   2. Edit env-setup.fish and fill in your actual paths
+#   3. Source it: source ./env-setup.fish
+#
+# This script sets up the necessary environment variables for the project.
+# It must be sourced, not executed directly.
+
+# Check if script is being sourced rather than executed
+# Note: Fish doesn't provide a reliable way to detect this in all cases
+# This is a best-effort check
+if status --is-command-substitution
+    echo "Error: This script must be sourced, not executed directly."
+    echo "Usage: source ./env-setup.fish"
+    exit 1
+end
+
+# Set up OSS CAD Suite path
+# TODO: Set this to your OSS CAD Suite installation directory
+set -gx OSSCAD ""
+
+# TODO: Set this to your Verilator installation bin directory
+set VERILATOR_PATH ""
+
+# Add tools to PATH
+set -gx PATH "$OSSCAD/bin:$VERILATOR_PATH:$PATH"
+
+echo "Environment configured:"
+echo "  OSSCAD: $OSSCAD"
+echo "  Verilator: $VERILATOR_PATH (update this in the script)"
+echo ""
+echo "Run 'make env-check' to verify all required tools are available."

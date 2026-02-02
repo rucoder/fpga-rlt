@@ -1,0 +1,54 @@
+#!/bin/sh
+# env-setup.example - Environment setup script template for i2c_master FPGA project
+#
+# Usage:
+#   1. Copy this file: cp env-setup.example env-setup
+#   2. Edit env-setup and fill in your actual paths
+#   3. Source it: source ./env-setup
+#
+# This script sets up the necessary environment variables for the project.
+# It must be sourced, not executed directly.
+
+# Check if script is being sourced rather than executed
+if [ -n "$BASH_VERSION" ]; then
+    # Bash
+    if [ "${BASH_SOURCE[0]}" = "${0}" ]; then
+        echo "Error: This script must be sourced, not executed directly."
+        echo "Usage: source ./env-setup"
+        exit 1
+    fi
+elif [ -n "$ZSH_VERSION" ]; then
+    # Zsh
+    if [ "${(%):-%x}" = "${0}" ]; then
+        echo "Error: This script must be sourced, not executed directly."
+        echo "Usage: source ./env-setup"
+        exit 1
+    fi
+else
+    # Generic check for other shells (including sh)
+    # This is a heuristic and may not work in all cases
+    case "$0" in
+        *env-setup*)
+            echo "Error: This script must be sourced, not executed directly."
+            echo "Usage: source ./env-setup"
+            exit 1
+            ;;
+    esac
+fi
+
+# Set up OSS CAD Suite path
+# TODO: Set this to your OSS CAD Suite installation directory
+export OSSCAD=""
+
+# Set up Verilator path
+# TODO: Set this to your Verilator installation bin directory
+VERILATOR_PATH=""
+
+# Add tools to PATH
+export PATH="${OSSCAD}/bin:${VERILATOR_PATH}:${PATH}"
+
+echo "Environment configured:"
+echo "  OSSCAD: ${OSSCAD}"
+echo "  Verilator: ${VERILATOR_PATH}"
+echo ""
+echo "Run 'make env-check' to verify all required tools are available."

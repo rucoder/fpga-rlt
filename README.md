@@ -6,6 +6,49 @@ One day they might become something useful. For now, they're a record of my lear
 
 ## Prerequisites
 
+### Environment Setup
+
+The project requires specific tools and paths to be configured. Instead of relying on Makefile exports, use the provided `env-setup` script:
+
+**For bash/zsh:**
+```bash
+# First time setup: copy the example and configure your paths
+cp env-setup.example env-setup
+# Edit env-setup and fill in your OSSCAD and VERILATOR_PATH values
+
+# Source the environment setup script (do this in each new shell session)
+source ./env-setup
+
+# Verify all required tools are installed and configured
+make env-check
+```
+
+**For fish shell:**
+```fish
+# First time setup: copy the example and configure your paths
+cp env-setup.fish.example env-setup.fish
+# Edit env-setup.fish and fill in your OSSCAD and VERILATOR_PATH values
+
+# Source the environment setup script (do this in each new shell session)
+source ./env-setup.fish
+
+# Verify all required tools are installed and configured
+make env-check
+```
+
+The `env-setup` scripts:
+- Sets up paths for OSS CAD Suite and Verilator
+- Must be sourced (not executed directly) - includes a check for this
+- Configures `OSSCAD` and `PATH` environment variables
+- Available in both POSIX shell (`env-setup`) and fish shell (`env-setup.fish`) versions
+- **Note:** Both `env-setup` and `env-setup.fish` are git-ignored; use the `.example` versions as templates
+
+The `env-check` target verifies:
+- `sby` is available
+- `yosys` is available (≥0.40)
+- `z3` is available (≥4.8)
+- `verilator` is available and version is between 5.036 and 5.042 (5.044 is buggy!)
+
 ### Required Tools
 
 #### 1. Verilator (≥5.0)
@@ -32,26 +75,21 @@ sudo make install
 #### 2. Yosys (≥0.40)
 Open-source synthesis tool for formal verification.
 
-**Fedora/RHEL:**
-```bash
-sudo dnf install yosys
-```
+**Build from source (recommended):**
+I built Yosys from source and installed to `~/.local/oss-cad` following the [official build instructions](https://yosyshq.readthedocs.io/projects/yosys/en/latest/getting_started/installation.html#building-from-source).
 
-**Ubuntu/Debian:**
+**Package manager (alternative):**
 ```bash
+# Fedora/RHEL
+sudo dnf install yosys
+
+# Ubuntu/Debian
 sudo apt install yosys
 ```
-
-**From source:** [YosysHQ/yosys](https://github.com/YosysHQ/yosys)
 
 #### 3. SymbiYosys (SBY) (≥0.40)
 Formal verification flow manager.
 
-```bash
-pip install symbiyosys
-```
-
-Or from source:
 ```bash
 git clone https://github.com/YosysHQ/sby.git
 cd sby
@@ -73,11 +111,23 @@ sudo apt install z3
 
 **From source:** [Z3Prover/z3](https://github.com/Z3Prover/z3)
 
-#### 5. Python 3 (≥3.8)
-Required for build scripts.
+#### 5. Python 3 (≥3.8) + Virtual Environment
+Required for build scripts and cocotb testing.
 
+**Quick setup (installs cocotb, click, pyyaml):**
 ```bash
-sudo dnf install python3 python3-pip
+make venv-setup
+```
+
+**Manual setup:**
+```bash
+# Create virtual environment
+python -m venv .venv
+source .venv/bin/activate.fish  # or: source .venv/bin/activate
+pip install -U pip
+pip install cocotb cocotb-bus cocotb-test
+pip install cocotbext-i2c
+pip install click
 pip install pyyaml
 ```
 
@@ -101,7 +151,25 @@ Note: `.surf.ron` files in the repo store Surfer's waveform viewer state per mod
 ### Verify Installation
 
 ```bash
-verilator --version    # Should show ≥5.0
+# First time: create your env-setup from template
+# For bash/zsh:
+cp env-setup.example env-setup
+# For fish:
+cp env-setup.fish.example env-setup.fish
+
+# Edit env-setup (or env-setup.fish) and configure your paths
+
+# Source environment setup
+# For bash/zsh:
+source ./env-setup
+# For fish:
+source ./env-setup.fish
+
+# Check all required tools (recommended)
+make env-check
+
+# Manual verification
+verilator --version    # Should show 5.036-5.042 (5.044 is buggy!)
 yosys --version        # Should show ≥0.40
 sby --version          # Should show ≥0.40
 z3 --version           # Should show ≥4.8
@@ -112,6 +180,18 @@ surfer --version       # Optional
 ## Quick Start
 
 ```bash
+# Setup environment (do this in each new shell session)
+# For bash/zsh:
+source ./env-setup
+# For fish:
+source ./env-setup.fish
+
+# Verify tools are installed correctly
+make env-check
+
+# Setup Python environment (first time only)
+make venv-setup
+
 # Generate lint filelists
 make lint-lists
 
@@ -206,6 +286,11 @@ make lint-lists
 ```
 
 ## Make Targets
+
+**Environment:**
+```bash
+make env-check            # Verify required tools (sby, yosys, z3, verilator 5.036-5.042)
+```
 
 **Simulation:**
 ```bash
