@@ -294,7 +294,8 @@ make env-check            # Verify required tools (sby, yosys, z3, verilator 5.0
 
 **Simulation:**
 ```bash
-make sim-<module>         # Run testbench
+make sim-<module>         # Run Verilator testbench
+make sim-coco-<module>    # Run cocotb testbench (if available)
 make all                  # Run all simulations
 ```
 
@@ -371,9 +372,8 @@ Debug log: `build/lint/logs/verilator_multi.log`
 
 ## Documentation
 
-- `docs/LINTER.md` - Linting infrastructure
-- `docs/FORMAL-VERIFICATION-STRATEGY.md` - Formal verification approach
-- `docs/BRICK-5-SINGLE-BIT.md` - I2C bit-level primitives
+- [Linting infrastructure](docs/LINTER.md)
+- [Cocotb testbench integration](docs/COCOTB.md)
 
 ## Resources
 
