@@ -2,5 +2,8 @@ build/*
 .cache
 *.vcd
 *.fst
+__pycache__/
+*.pyc
 env-setup
 env-setup.fish
+.venv/

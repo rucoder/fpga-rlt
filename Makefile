@@ -54,6 +54,12 @@ $(VERILATOR_OUT_DIR)/sim_%: sim/$$(call dash-to-underscore,$$*)/tb_$$(call dash-
     --top-module tb_$(MODULE) sim/$(MODULE)/tb_$(MODULE).sv -Irtl \
     -o sim_$(MODULE)
 
+# cocotb simulation targets
+.PHONY: sim-coco-%
+sim-coco-%: lint-lists
+	$(eval MODULE := $(call dash-to-underscore,$*))
+	@$(MAKE) -f sim/cocotb.mk TOP=tb_$(MODULE)
+
 # SBY formal verification targets
 .PHONY: sby-%
 sby-%: formal/$$(call dash-to-underscore,$$*)/$$(call dash-to-underscore,$$*).sby rtl/$$(call dash-to-underscore,$$*).sv
