@@ -140,6 +140,11 @@ def clear_slave_pulls(dut):
     _sig(dut, "slave_sda_pull").value = 0
 
 
+async def settle_sync(dut, cycles=2):
+    for _ in range(cycles):
+        await RisingEdge(dut.clk)
+
+
 # ----------------------------
 # Test cases
 # ----------------------------
@@ -180,6 +185,7 @@ async def handshake_invariants(dut):
     # Kick a READ (slave drives 0)
     dut.op_read.value = 1
     set_slave_sda(dut, 0)
+    await settle_sync(dut, 2)
     await kick_start(dut)
     await wait_done_pulse(dut)
 
@@ -203,12 +209,14 @@ async def read_correctness_no_stretch(dut):
 
     # READ 0
     set_slave_sda(dut, 0)
+    await settle_sync(dut, 2)
     await kick_start(dut)
     await wait_done_pulse(dut)
     assert int(dut.rx_bit.value) == 0, f"READ0: rx_bit={int(dut.rx_bit.value)}"
 
     # READ 1
     set_slave_sda(dut, 1)
+    await settle_sync(dut, 2)
     await kick_start(dut)
     await wait_done_pulse(dut)
     assert int(dut.rx_bit.value) == 1, f"READ1: rx_bit={int(dut.rx_bit.value)}"
@@ -238,6 +246,7 @@ async def randomized_read_with_stretch(dut):
 
         dut.prescale.value = prescale
         set_slave_sda(dut, bit)
+        await settle_sync(dut, 2)
         _sig(dut, "slave_scl_pull").value = 0  # ensure released before start
 
         # Start stretch task (may do nothing if stretch==0)
@@ -280,6 +289,7 @@ async def kick_while_busy(dut):
     dut.op_read.value = 1
     dut.tx_bit.value = 1
     set_slave_sda(dut, 1)
+    await settle_sync(dut, 2)
 
     # First kick
     await kick_start(dut)
