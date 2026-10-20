@@ -1,0 +1,6 @@
+{
+  "flags": "-Irtl -Isim -Iformal",
+  "index": [
+    { "dirs": ["rtl", "sim", "formal"] }
+  ]
+}
