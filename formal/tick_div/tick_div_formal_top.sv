@@ -102,12 +102,15 @@ module tick_div_formal_top;
         .cnt
     );
 
-    // Constrain reset to eventually deassert (typical)
+    // Constrain reset to eventually deassert (typical).
+    // Plain always (not always_ff): reset glue pairs an initial write with a
+    // procedural drive, which always_ff's single-writer rule (IEEE 9.2.2.4)
+    // forbids — slang's LSP errors on it. Identical semantics in yosys/verilator.
     initial rst_n = 1'b0;
-    always_ff @(posedge clk) rst_n <= 1'b1;
+    always @(posedge clk) rst_n <= 1'b1;
 
-    // Bind properties to DUT instance
-    bind tick_div tick_div_props #(
+    // Properties checker (direct instantiation; Yosys OSS removed `bind` in 0.70)
+    tick_div_props #(
         .W(W)
     ) props (
         .clk(clk),

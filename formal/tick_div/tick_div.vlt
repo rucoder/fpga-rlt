@@ -12,3 +12,6 @@ lint_off -rule UNDRIVEN -file "*formal/tick_div/tick_div_formal_top.sv" -match "
 lint_off -rule UNDRIVEN -file "*formal/tick_div/tick_div_formal_top.sv" -match "Signal is not driven: 'prescale'*"
 lint_off -rule UNUSEDSIGNAL -file "*formal/tick_div/tick_div_formal_top.sv" -match "Signal is not used: 'tick'*"
 lint_off -rule UNUSEDSIGNAL -file "*formal/tick_div/tick_div_formal_top.sv" -match "Signal is not used: 'cnt'*"
+
+// reason: inherent to harness - rst_n is async-reset in DUT, sampled synchronously in assumptions
+lint_off -rule SYNCASYNCNET -file "*formal/tick_div/tick_div_formal_top.sv" -match "Signal flopped as both synchronous and async: 'tick_div_formal_top.rst_n'*"

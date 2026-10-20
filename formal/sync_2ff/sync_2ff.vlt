@@ -13,3 +13,7 @@ lint_off -rule UNDRIVEN -file "*formal/sync_2ff/sync_2ff_formal_top.sv" -match "
 lint_off -rule UNDRIVEN -file "*formal/sync_2ff/sync_2ff_formal_top.sv" -match "Signal is not driven: 'async_in'*"
 lint_off -rule UNUSEDSIGNAL -file "*formal/sync_2ff/sync_2ff_formal_top.sv" -match "Signal is not used: 'sync_out'*"
 lint_off -rule UNUSEDPARAM -file "*formal/sync_2ff/sync_2ff_formal_top.sv" -match "Parameter is not used: 'W'*"
+
+// reason: inherent to harness - rst_n is async-reset in DUT, sampled synchronously in assumptions
+lint_off -rule SYNCASYNCNET -file "*formal/sync_2ff/sync_2ff_formal_top.sv" -match "Signal flopped as both synchronous and async: 'sync_2ff_formal_top.rst_n'*"
+

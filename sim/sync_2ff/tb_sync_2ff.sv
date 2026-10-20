@@ -2,7 +2,8 @@
 
 module tb_sync_2ff;
 
-    logic clk = 0;
+    logic clk;
+    initial clk = 0;
     always #5 clk = ~clk;  // 100 MHz
 
     logic rst_n;

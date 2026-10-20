@@ -2,7 +2,8 @@
 
 module tb_i2c_scl_req;
 
-    logic clk = 0;
+    logic clk;
+    initial clk = 0;
     always #5 clk = ~clk;
 
     logic rst_n;

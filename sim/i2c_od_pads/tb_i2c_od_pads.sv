@@ -2,7 +2,8 @@
 
 module tb_i2c_od_pads;
 
-    logic clk = 0;
+    logic clk;
+    initial clk = 0;
     always #5 clk = ~clk;
 
     logic rst_n;

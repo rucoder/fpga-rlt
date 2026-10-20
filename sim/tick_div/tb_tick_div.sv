@@ -2,7 +2,8 @@
 
 module tb_tick_div;
 
-    logic clk = 0;
+    logic clk;
+    initial clk = 0;
     always #5 clk = ~clk;  // 100 MHz if you pretend timescale is ns
 
     logic rst_n;

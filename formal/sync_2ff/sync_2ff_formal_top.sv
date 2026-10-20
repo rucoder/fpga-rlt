@@ -17,8 +17,12 @@ module sync_2ff_formal_top;
 
     // Constrain reset: low at time 0, then high forever after 1st cycle.
     // (Without this, the solver can keep rst_n low forever and "prove" anything.)
+    // Plain always (not always_ff): pairs an initial write with a procedural
+    // drive — always_ff's single-writer rule (IEEE 9.2.2.4) forbids that and
+    // slang's LSP errors on it. Identical semantics in yosys/verilator.
     logic past_valid;
-    always_ff @(posedge clk) past_valid <= 1'b1;
+    initial past_valid = 1'b0;
+    always @(posedge clk) past_valid <= 1'b1;
 
     always_ff @(posedge clk) begin
         if (!past_valid) begin
@@ -28,8 +32,8 @@ module sync_2ff_formal_top;
         end
     end
 
-    // Bind properties to the DUT
-    bind sync_2ff sync_2ff_props #(
+    // Properties checker (direct instantiation; Yosys OSS removed `bind` in 0.70)
+    sync_2ff_props #(
         .RST_VAL(1'b1)
     ) props (
         .clk(clk),
