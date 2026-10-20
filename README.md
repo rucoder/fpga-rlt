@@ -42,16 +42,17 @@ The `env-setup` scripts:
 - Configures `OSSCAD` and `PATH` environment variables
 - Available in both POSIX shell (`env-setup`) and fish shell (`env-setup.fish`) versions
 - **Note:** Both `env-setup` and `env-setup.fish` are git-ignored; use the `.example` versions as templates
+- Any tool can be rebuilt from pinned source: `make build-verilator`, `build-yosys`, `build-sby`, `build-z3`, or `make build-toolchain` for all (see `tools/mk/toolchain.mk`)
 
 The `env-check` target verifies:
 - `sby` is available
-- `yosys` is available (≥0.40)
-- `z3` is available (≥4.8)
-- `verilator` is available and version is between 5.036 and 5.042 (5.044 is buggy!)
+- `yosys` is available (≥0.70)
+- `z3` is available (≥5.0)
+- `verilator` is available and version is exactly 5.052 (5.044 crashed reproducibly here — rebuild with `make build-verilator`)
 
 ### Required Tools
 
-#### 1. Verilator (≥5.0)
+#### 1. Verilator (5.052)
 SystemVerilog simulator and linter.
 
 **Fedora/RHEL:**
@@ -72,7 +73,7 @@ autoconf && ./configure && make -j$(nproc)
 sudo make install
 ```
 
-#### 2. Yosys (≥0.40)
+#### 2. Yosys (≥0.70)
 Open-source synthesis tool for formal verification.
 
 **Build from source (recommended):**
@@ -87,7 +88,7 @@ sudo dnf install yosys
 sudo apt install yosys
 ```
 
-#### 3. SymbiYosys (SBY) (≥0.40)
+#### 3. SymbiYosys (SBY) (≥0.70)
 Formal verification flow manager.
 
 ```bash
@@ -96,7 +97,7 @@ cd sby
 sudo make install
 ```
 
-#### 4. Z3 Theorem Prover (≥4.8)
+#### 4. Z3 Theorem Prover (≥5.0)
 SMT solver for formal verification.
 
 **Fedora/RHEL:**
@@ -119,16 +120,16 @@ Required for build scripts and cocotb testing.
 make venv-setup
 ```
 
-**Manual setup:**
+**Manual setup (versions must match the pins in `tools/mk/python.mk`):**
 ```bash
 # Create virtual environment
 python -m venv .venv
 source .venv/bin/activate.fish  # or: source .venv/bin/activate
 pip install -U pip
-pip install cocotb cocotb-bus cocotb-test
-pip install cocotbext-i2c
-pip install click
-pip install pyyaml
+pip install cocotb==2.1.0 cocotb-bus==0.3.0 cocotb-test==0.2.6
+pip install cocotbext-i2c==0.1.2
+pip install click==8.3.1
+pip install pyyaml==6.0.3
 ```
 
 #### 6. Surfer (Recommended) or GTKWave
@@ -169,10 +170,10 @@ source ./env-setup.fish
 make env-check
 
 # Manual verification
-verilator --version    # Should show 5.036-5.042 (5.044 is buggy!)
-yosys --version        # Should show ≥0.40
-sby --version          # Should show ≥0.40
-z3 --version           # Should show ≥4.8
+verilator --version    # Should show 5.052
+yosys --version        # Should show ≥0.70
+sby --version          # Should show ≥0.70
+z3 --version           # Should show ≥5.0
 python3 --version      # Should show ≥3.8
 surfer --version       # Optional
 ```
@@ -289,7 +290,7 @@ make lint-lists
 
 **Environment:**
 ```bash
-make env-check            # Verify required tools (sby, yosys, z3, verilator 5.036-5.042)
+make env-check            # Verify required tools (sby, yosys, z3, verilator 5.052, yosys/sby ≥0.70, z3 ≥5.0)
 ```
 
 **Simulation:**
@@ -346,19 +347,30 @@ git diff sim/*/*.vlt      # Review new warnings
 git commit
 ```
 
-See `docs/LINTER.md` for details.
+See `docs/guides/LINTER.md` for details.
 
 ## Editor Integration
 
-### Zed Editor (Veridian LSP)
+### Zed Editor (slang-server LSP)
 
-Real-time linting configured in `veridian.yml`.
+Real-time diagnostics via the `verilog` extension, which auto-downloads
+[slang-server](https://github.com/hudson-trading/slang-server) (a SystemVerilog
+language server built on the slang compiler).
 
-1. Install Veridian extension in Zed
-2. Generate filelists: `make lint-lists`
-3. Open project - linting works automatically
+1. Install the `Verilog` extension in Zed — slang-server is fetched automatically
+2. Project context (include dirs, indexed dirs) lives in `.slang/server.json`
+   (auto-loaded, auto-reloaded on save)
+3. Note: slang is a *second-opinion* linter alongside Verilator — a finding in
+   Zed that `make lint` doesn't report means either a waived Verilator warning
+   or a rule only slang enforces. Prefer code both accept (e.g. the formal-top
+   reset glue uses plain `always`, not `always_ff` — see the formal tops).
 
-Debug log: `build/lint/logs/verilator_multi.log`
+The older Veridian LSP integration (`veridian.yml` +
+`tools/zed_verilator_wrapper.py`) is **kept but inactive** — the extension no
+longer runs Veridian by default. To re-enable it (IDE == `make lint` exactly,
+same tool + waivers): set in Zed settings
+`"languages": {"SystemVerilog": {"language_servers": ["veridian", "!slang"]}}`
+and keep filelists fresh with `make lint-lists`.
 
 ## Current Modules
 
@@ -367,13 +379,15 @@ Debug log: `build/lint/logs/verilator_multi.log`
 | `tick_div` | ✅ | ✅ | ✅ | Configurable clock divider |
 | `sync_2ff` | ✅ | ✅ | ✅ | 2-FF synchronizer |
 | `i2c_od_pads` | ✅ | ✅ | - | Open-drain I/O pads |
-| `i2c_bit_prim` | ✅ | ✅ | - | I2C bit-level primitive |
-| `i2c_scl_req` | ✅ | ✅ | - | SCL request arbiter |
+| `i2c_bit_prim` | ✅ | ✅ | harness | I2C bit-level primitive |
+| `i2c_scl_req` | ✅ | ✅ | harness | SCL request arbiter |
+
+Note: `harness` = formal harness exists; check the Makefile `all:` target for which proofs currently run by default and why.
 
 ## Documentation
 
-- [Linting infrastructure](docs/LINTER.md)
-- [Cocotb testbench integration](docs/COCOTB.md)
+- [Documentation index](docs/README.md)
+- [Roadmap](docs/ROADMAP.md)
 
 ## Resources
 

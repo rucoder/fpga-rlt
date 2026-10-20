@@ -1,0 +1,10 @@
+{
+  "languages": {
+    "SystemVerilog": {
+      "tab_size": 4,
+      "hard_tabs": false,
+      "format_on_save": "on",
+      "preferred_line_length": 100,
+    },
+  },
+}

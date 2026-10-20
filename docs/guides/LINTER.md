@@ -37,12 +37,12 @@ The project uses **Verilator** as the primary linter for SystemVerilog code. The
                │
                ▼
 ┌──────────────────────────────┐  ┌─────────────────────────────┐
-│  tools/lint_verilator.py     │  │ tools/zed_verilator_wrapper.py│
-│  (Make target: make lint)    │  │ (LSP for Zed/Veridian)       │
-│  • Reads tops.txt            │  │ • Reads tops.txt             │
-│  • Runs verilator per top    │  │ • Finds tops for edited file │
-│  • Shows full output         │  │ • Runs verilator per top     │
-│  • Returns error if fails    │  │ • Returns diagnostics to LSP │
+│  tools/lint_verilator.py     │  │ slang-server (Zed IDE LSP)  │
+│  (Make target: make lint)    │  │ • .slang/server.json config │
+│  • Reads tops.txt            │  │ • Independent second-opinion│
+│  • Runs verilator per top    │  │   linter (not verilator)    │
+│  • Shows full output         │  │ • Diagnostics live in Zed   │
+│  • Returns error if fails    │  │                             │
 └──────────────────────────────┘  └─────────────────────────────┘
                │                                 │
                └─────────────┬───────────────────┘
@@ -50,7 +50,7 @@ The project uses **Verilator** as the primary linter for SystemVerilog code. The
                              ▼
                     ┌─────────────────┐
                     │   Verilator     │
-                    │   --lint-only   │
+                    │   --lint-only   │   (make lint path only)
                     └─────────────────┘
                              │
                              ▼
@@ -66,7 +66,7 @@ The project uses **Verilator** as the primary linter for SystemVerilog code. The
 ```
 i2c_master/
 ├── lint_config.yml              # Linting configuration (exclude patterns)
-├── veridian.yml                 # Veridian LSP configuration (for Zed)
+├── .slang/server.json           # slang-server LSP configuration (for Zed)
 ├── build/
 │   ├── rtl_lib.f                # RTL modules as libraries
 │   └── lint/
@@ -86,7 +86,7 @@ i2c_master/
 └── tools/
     ├── gen_lint_filelists.py        # Generate filelists and tops
     ├── lint_verilator.py            # Run linting from Make
-    ├── zed_verilator_wrapper.py     # Wrapper for Zed/Veridian LSP
+    ├── zed_verilator_wrapper.py     # Wrapper for (inactive) Veridian LSP
     └── manage_waivers.py            # Waiver management tool
 ```
 
@@ -179,22 +179,27 @@ Linting 7 tops: sync_2ff_formal_top, tb_i2c_bit_prim, ...
 SUCCESS: All 7 tops passed lint
 ```
 
-### 4. LSP Wrapper for Zed Editor (`tools/zed_verilator_wrapper.py`)
+### 4. IDE Linting in Zed (slang-server)
 
-Provides real-time linting in the Zed editor via the Veridian language server.
+The Zed `Verilog` extension auto-downloads
+[slang-server](https://github.com/hudson-trading/slang-server) — a language
+server built on the slang SystemVerilog compiler. It is an **independent
+second-opinion linter**, not a Verilator frontend:
 
-**Features:**
-- Called by Veridian LSP instead of Verilator directly
-- Reads pre-generated filelists (doesn't scan directories - optimized for LSP hot path)
-- When a file is edited, finds which top(s) contain that file
-- For RTL library files (`rtl/*.sv`), lints them standalone
-- For testbench/formal files, lints all relevant tops
-- Logs all activity to `build/lint/logs/verilator_multi.log`
-- Always returns exit code 0 (LSP expects diagnostics in stdout)
+- Project context comes from `.slang/server.json` (include dirs via `flags`,
+  indexed dirs via `index`); the server auto-loads and auto-reloads it
+- slang knows nothing about Verilator `.vlt` waivers — a Zed finding that
+  `make lint` doesn't report is either a waived warning or a slang-only rule
+- Preferred policy: write code **both** linters accept (example: formal-top
+  reset glue uses plain `always` with an `initial` write — `always_ff`'s
+  single-writer rule, IEEE 9.2.2.4, forbids the pairing)
 
-**Configuration:** `veridian.yml` points to `./tools/zed_verilator_wrapper.py`
-
-**Debug log:** `build/lint/logs/verilator_multi.log`
+(The former Veridian LSP integration — `veridian.yml` +
+`tools/zed_verilator_wrapper.py` — is **kept but inactive**: the extension no
+longer runs Veridian by default. To re-enable it (IDE == `make lint` exactly,
+same tool + waivers): set `"languages": {"SystemVerilog": {"language_servers":
+["veridian", "!slang"]}}` in Zed settings and keep filelists fresh with
+`make lint-lists`.)
 
 ### 5. Waiver Management (`tools/manage_waivers.py`)
 
