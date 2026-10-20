@@ -1,7 +1,7 @@
 `verilator_config
 
-lint_off -rule UNUSEDSIGNAL -file "*/home/mikem/kicad/projects/fpga/i2c_master/sim/i2c_bit_prim/tb_i2c_bit_prim.sv" -match "Signal is not used: 'busy'*"
-lint_off -rule UNUSEDSIGNAL -file "*/home/mikem/kicad/projects/fpga/i2c_master/sim/i2c_bit_prim/tb_i2c_bit_prim.sv" -match "Signal is not used: 'rx_bit'*"
-lint_off -rule UNUSEDSIGNAL -file "*/home/mikem/kicad/projects/fpga/i2c_master/rtl/i2c_bit_prim.sv" -match "Signal is not used: 'cnt'*"
-lint_off -rule UNUSEDSIGNAL -file "*/home/mikem/kicad/projects/fpga/i2c_master/rtl/i2c_scl_req.sv" -match "Signal is not used: 'clk'*"
-lint_off -rule UNUSEDSIGNAL -file "*/home/mikem/kicad/projects/fpga/i2c_master/rtl/i2c_scl_req.sv" -match "Signal is not used: 'rst_n'*"
+lint_off -rule UNUSEDSIGNAL -file "*sim/i2c_bit_prim/tb_i2c_bit_prim.sv" -match "Signal is not used: 'busy'*"
+lint_off -rule UNUSEDSIGNAL -file "*sim/i2c_bit_prim/tb_i2c_bit_prim.sv" -match "Signal is not used: 'rx_bit'*"
+lint_off -rule UNUSEDSIGNAL -file "*rtl/i2c_bit_prim.sv" -match "Signal is not used: 'cnt'*"
+lint_off -rule UNUSEDSIGNAL -file "*rtl/i2c_scl_req.sv" -match "Signal is not used: 'clk'*"
+lint_off -rule UNUSEDSIGNAL -file "*rtl/i2c_scl_req.sv" -match "Signal is not used: 'rst_n'*"

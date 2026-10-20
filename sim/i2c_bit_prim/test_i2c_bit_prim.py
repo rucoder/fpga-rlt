@@ -14,7 +14,7 @@
 import random
 
 import cocotb
-from cocotb.triggers import RisingEdge
+from cocotb.triggers import FallingEdge, ReadWrite, RisingEdge
 
 # ----------------------------
 # Tunables / expectations
@@ -46,6 +46,24 @@ def _sig(dut, name: str):
     return getattr(dut, name)
 
 
+async def _drive(sig, value, label: str = ""):
+    """Write and VERIFY: read back after the write settles; retry if lost.
+
+    Occasional VPI writes have been observed not to reach the design in this
+    simulator flow (wall-clock dependent). A drive that verifies itself turns
+    a silent loss into a loud, self-healing retry.
+    """
+    from cocotb.triggers import ReadWrite
+    for attempt in range(4):
+        sig.value = value
+        await ReadWrite()
+        if int(sig.value) == int(value):
+            if attempt:
+                print(f"DRIVE-RETRY {label}: needed {attempt + 1} attempts", flush=True)
+            return
+    raise AssertionError(f"DRIVE-FAILED {label}: wrote {value}, reads {int(sig.value)}")
+
+
 async def wait_for_reset_release(dut, max_cycles=1000):
     """Wait until rst_n==1 (TB drives reset)."""
     if hasattr(dut, "rst_n"):
@@ -61,9 +79,29 @@ async def wait_for_reset_release(dut, max_cycles=1000):
 
 
 async def kick_start(dut):
-    """Pulse start for 1 clk cycle."""
+    """Pulse start for 1 clk cycle, aligned to the falling edge.
+
+    Posedge-aligned one-edge pulses can lose the scheduler's delta race:
+    the write may land after the edge's sampling region, so the DUT never
+    sees start=1 and the op never starts (symptom: busy-never / timeouts).
+    Two rules keep it safe:
+      1. Align to the falling edge (half a cycle of settle margin).
+      2. Hold the pulse across TWO posedges: VPI writes reach the design's
+         combinational logic with roughly one evaluation-boundary of
+         deferral in this simulator flow, so a pulse spanning a single
+         posedge can fall entirely inside the deferral window and never
+         be sampled (observed and proven with per-edge DUT-state dumps,
+         2026-10-19; identical under Verilator 5.042 and 5.052).
+    The FSM latches the command on the first edge it sees, so a 2-edge
+    pulse still starts exactly one operation.
+    """
+    await FallingEdge(dut.clk)
+    await ReadWrite()
     dut.start.value = 1
+    await FallingEdge(dut.clk)
     await RisingEdge(dut.clk)
+    await FallingEdge(dut.clk)
+    await ReadWrite()
     dut.start.value = 0
 
 
@@ -77,6 +115,17 @@ async def wait_done_pulse(dut, timeout_cycles=DONE_TIMEOUT_CYCLES):
         if int(dut.done.value) == 1:
             return i + 1
     raise AssertionError(f"Timeout waiting for done (>{timeout_cycles} cycles)")
+
+
+async def wait_busy_low(dut, op: str, max_cycles=None):
+    """Wait for busy to fall after done (FINISH_LOW takes one tick phase)."""
+    if max_cycles is None:
+        max_cycles = 4 * (1 + int(dut.prescale.value))
+    for _ in range(max_cycles):
+        if int(dut.busy.value) == 0:
+            return
+        await RisingEdge(dut.clk)
+    raise AssertionError(f"busy did not return to 0 after done ({op})")
 
 
 async def count_done_pulses(dut, cycles: int) -> int:
@@ -120,27 +169,36 @@ async def stretch_scl_for_cycles(dut, stretch_cycles: int, arm_delay_cycles: int
     for _ in range(arm_delay_cycles):
         await RisingEdge(dut.clk)
 
-    slave_scl_pull.value = 1
+    await FallingEdge(dut.clk)
+    await ReadWrite()
+    await _drive(slave_scl_pull, 1, "scl_stretch_on")
     for _ in range(stretch_cycles):
         await RisingEdge(dut.clk)
-    slave_scl_pull.value = 0
+    await FallingEdge(dut.clk)
+    await ReadWrite()
+    await _drive(slave_scl_pull, 0, "scl_stretch_off")
 
 
-def set_slave_sda(dut, bit: int):
+async def set_slave_sda(dut, bit: int):
     """
     Slave drives SDA low for bit=0, releases for bit=1.
     Open-drain: driving '1' means release (Z).
+    Negedge-aligned: the write must not race the posedge sampling (see
+    kick_start).
     """
-    slave_sda_pull = _sig(dut, "slave_sda_pull")
-    slave_sda_pull.value = 1 if (bit == 0) else 0
+    await FallingEdge(dut.clk)
+    await ReadWrite()
+    await _drive(_sig(dut, "slave_sda_pull"), 1 if (bit == 0) else 0, "sda_pull")
 
 
-def clear_slave_pulls(dut):
-    _sig(dut, "slave_scl_pull").value = 0
-    _sig(dut, "slave_sda_pull").value = 0
+async def clear_slave_pulls(dut):
+    await FallingEdge(dut.clk)
+    await ReadWrite()
+    await _drive(_sig(dut, "slave_scl_pull"), 0, "scl_pull_clear")
+    await _drive(_sig(dut, "slave_sda_pull"), 0, "sda_pull_clear")
 
 
-async def settle_sync(dut, cycles=2):
+async def settle_sync(dut, cycles=3):
     for _ in range(cycles):
         await RisingEdge(dut.clk)
 
@@ -161,7 +219,7 @@ async def handshake_invariants(dut):
     await wait_for_reset_release(dut)
 
     # Sanity: initial values
-    clear_slave_pulls(dut)
+    await clear_slave_pulls(dut)
     dut.start.value = 0
     dut.prescale.value = 1  # fast
     dut.op_read.value = 0
@@ -179,18 +237,20 @@ async def handshake_invariants(dut):
         raise AssertionError("busy did not assert after kick (WRITE)")
 
     await wait_done_pulse(dut)
-    assert int(dut.busy.value) == 0, "busy should be 0 at/after done (WRITE)"
+    # done pulses at the SCL-high sample point; the FSM still walks
+    # FINISH_LOW (one more tick phase) before returning to idle.
+    await wait_busy_low(dut, "WRITE")
     await ensure_done_is_pulse(dut)
 
     # Kick a READ (slave drives 0)
     dut.op_read.value = 1
-    set_slave_sda(dut, 0)
+    await set_slave_sda(dut, 0)
     await settle_sync(dut, 2)
     await kick_start(dut)
     await wait_done_pulse(dut)
 
     assert int(dut.rx_bit.value) == 0, f"Expected rx_bit=0, got {int(dut.rx_bit.value)}"
-    assert int(dut.busy.value) == 0, "busy should be 0 at/after done (READ)"
+    await wait_busy_low(dut, "READ")
     await ensure_done_is_pulse(dut)
 
 
@@ -201,25 +261,31 @@ async def read_correctness_no_stretch(dut):
     """
     await wait_for_reset_release(dut)
 
-    clear_slave_pulls(dut)
+    await clear_slave_pulls(dut)
     dut.start.value = 0
     dut.prescale.value = 1
     dut.op_read.value = 1
     dut.tx_bit.value = 1  # don't care for READ
 
     # READ 0
-    set_slave_sda(dut, 0)
+    await set_slave_sda(dut, 0)
     await settle_sync(dut, 2)
     await kick_start(dut)
     await wait_done_pulse(dut)
     assert int(dut.rx_bit.value) == 0, f"READ0: rx_bit={int(dut.rx_bit.value)}"
+    # let the DUT walk FINISH_LOW back to idle before the next kick -
+    # start is ignored while busy (locked in by kick_while_busy)
+    await wait_busy_low(dut, "READ0")
 
     # READ 1
-    set_slave_sda(dut, 1)
+    await set_slave_sda(dut, 1)
     await settle_sync(dut, 2)
     await kick_start(dut)
     await wait_done_pulse(dut)
     assert int(dut.rx_bit.value) == 1, f"READ1: rx_bit={int(dut.rx_bit.value)}"
+    # leave the DUT idle: tests share one simulation, and the next test
+    # changes prescale and kicks - a kick while FINISH_LOW runs is ignored
+    await wait_busy_low(dut, "READ1")
 
 
 @cocotb.test()
@@ -233,7 +299,7 @@ async def randomized_read_with_stretch(dut):
     """
     await wait_for_reset_release(dut)
 
-    clear_slave_pulls(dut)
+    await clear_slave_pulls(dut)
     dut.start.value = 0
     dut.op_read.value = 1
     dut.tx_bit.value = 1  # don't care for READ
@@ -245,10 +311,11 @@ async def randomized_read_with_stretch(dut):
         bit = random.randint(0, 1)
 
         dut.prescale.value = prescale
-        set_slave_sda(dut, bit)
+        await set_slave_sda(dut, bit)
         await settle_sync(dut, 2)
         _sig(dut, "slave_scl_pull").value = 0  # ensure released before start
 
+        print(f"TRIAL {k}: prescale={prescale} stretch={stretch} bit={bit}", flush=True)
         # Start stretch task (may do nothing if stretch==0)
         stretcher = cocotb.start_soon(
             stretch_scl_for_cycles(dut, stretch_cycles=stretch)
@@ -259,6 +326,8 @@ async def randomized_read_with_stretch(dut):
 
         # Ensure stretcher completes (it will if stretch>=0)
         await stretcher
+        # DUT must be idle before the next kick (start ignored while busy)
+        await wait_busy_low(dut, f"trial={k}")
 
         got = int(dut.rx_bit.value)
         assert got == bit, (
@@ -283,12 +352,12 @@ async def kick_while_busy(dut):
     """
     await wait_for_reset_release(dut)
 
-    clear_slave_pulls(dut)
+    await clear_slave_pulls(dut)
     dut.start.value = 0
     dut.prescale.value = 1
     dut.op_read.value = 1
     dut.tx_bit.value = 1
-    set_slave_sda(dut, 1)
+    await set_slave_sda(dut, 1)
     await settle_sync(dut, 2)
 
     # First kick
@@ -340,7 +409,7 @@ async def write_operation_smoke(dut):
     """
     await wait_for_reset_release(dut)
 
-    clear_slave_pulls(dut)
+    await clear_slave_pulls(dut)
     dut.start.value = 0
     dut.prescale.value = 1
     dut.op_read.value = 0

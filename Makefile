@@ -4,6 +4,7 @@
 
 # Include modular makefiles
 include tools/mk/environment.mk
+include tools/mk/toolchain.mk
 include tools/mk/python.mk
 include tools/mk/help.mk
 
@@ -16,7 +17,8 @@ LINT_DIR:=$(BUILD_DIR)/lint
 LINT_STAMP:=$(LINT_DIR)/.stamp
 LINT_DEPFILE:=$(LINT_DIR)/gen.d
 
-VERILATOR_OPTS_COMMON:=--Wall --timing --trace-fst -cc -sv \
+# --public-flat-rw: keep every signal visible in waves/VPI (matches the cocotb build)
+VERILATOR_OPTS_COMMON:=--Wall --timing --trace-fst --public-flat-rw --timescale 1ns/1ps -cc -sv \
 	-exe --binary --build -O3 \
 	--Mdir $(VERILATOR_OUT_DIR) \
 	--verilate-jobs $(nproc) --build-jobs $(nproc) \
@@ -115,4 +117,7 @@ clean-waivers:
 # Targets for venv-setup, env-check, and help are now in tools/mk/*.mk files
 
 .PHONY: all
-all: sim-tick-div sim-sync-2ff sim-i2c-od-pads sim-i2c-bit-prim sby-tick-div sby-sync-2ff sby-i2c-bit-prim
+# Exclusions from 'all':
+#   sby-i2c-bit-prim: harness uses `bind` (removed in Yosys 0.70 OSS);
+#     re-enable after the DUT gains FORMAL-gated debug outputs (see docs/ROADMAP.md)
+all: sim-tick-div sim-sync-2ff sim-i2c-od-pads sim-i2c-bit-prim sby-tick-div sby-sync-2ff

@@ -2,7 +2,8 @@
 
 module tb_i2c_bit_prim;
 
-    logic clk = 0;
+    logic clk;
+    initial clk = 0;
     always #5 clk = ~clk;
 
     logic rst_n;
@@ -89,22 +90,48 @@ module tb_i2c_bit_prim;
     end
 
 `ifndef COCOTB_SIM
+    // ---------- heartbeat monitor: periodic state print while running ----------
+    int mon_cnt;
+    always @(posedge clk) begin
+        mon_cnt <= mon_cnt + 1;
+        if (mon_cnt % 100 == 0)
+            $display("[MON] t=%0t start=%b st_q=%0d tick=%b sample=%b sclOK=%b | scl=%b sda=%b slaveSclP=%b slaveSdaP=%b busy=%b done=%b",
+                     $time, start, dut.st_q, dut.u_div.tick, dut.sample_now, dut.scl_high_ok,
+                     scl, sda, slave_scl_pull, slave_sda_pull, busy, done);
+    end
+
+    // ---------- watchdog: a stuck wait() fails the test, never hangs ----------
+    initial begin
+        repeat (100000) @(posedge clk);
+        $display("TB TIMEOUT: stimulus thread stuck (last stage marker above)");
+        $fatal(1);
+    end
+
     // ---------- standalone stimulus (disabled under cocotb) ----------
     initial begin
+        // Never race the reset: wait for release before the first kick
+        wait (rst_n);
+        repeat (2) @(posedge clk);
+
         // ---- WRITE bit = 0 (master pulls SDA low) ----
         op_read = 0;
         tx_bit  = 0;
+        $display("[TB] WRITE0 kick @ %0t", $time);
         kick();
         wait (done);
+        wait (!busy);          // walk FINISH_LOW back to idle before next kick
         @(posedge clk);
 
         // ---- WRITE bit = 1 (master releases SDA) ----
         tx_bit = 1;
+        $display("[TB] WRITE1 kick @ %0t", $time);
         kick();
         wait (done);
         @(posedge clk);
 
         // ---- READ bit with slave driving 0, and clock stretching ----
+        wait (!busy);          // WRITE1's FINISH_LOW must complete first
+        @(posedge clk);
         op_read = 1;
 
         // prepare slave to output 0 (pull low)
@@ -123,14 +150,19 @@ module tb_i2c_bit_prim;
             end
         join_none
 
+        $display("[TB] READ0 kick @ %0t", $time);
         kick();
         wait (done);
+        $display("[TB] READ0 done @ %0t rx=%b", $time, rx_bit);
+        wait (!busy);          // walk FINISH_LOW back to idle before next kick
         @(posedge clk);
 
         // release SDA and read 1 (bus high)
         slave_sda_pull = 0;
+        $display("[TB] READ1 kick @ %0t", $time);
         kick();
         wait (done);
+        wait (!busy);          // walk FINISH_LOW back to idle before next kick
         @(posedge clk);
 
         $finish;
