@@ -166,7 +166,27 @@ module i2c_bit_prim #(
     // ----------------------------
     // I2C meaning: "we just completed the SCL-high sample point of this bit"
     // i.e. the cycle where we sample SDA and transition RAISE_HIGH -> FINISH_LOW.
-    assign done = (st_q == ST_RAISE_HIGH) && scl_high_ok && tick;
+    // assign done = (st_q == ST_RAISE_HIGH) && scl_high_ok && tick;
+    // logic done_q;
+//     always_ff @(posedge clk or negedge rst_n)
+//         if (!rst_n) done_q <= 1'b0;
+//         else        done_q <= (st_q == ST_RAISE_HIGH) && scl_high_ok && tick;
+//
+//     assign done = done_q;   // true 1-cycle pulse, coincident with the rx_bit latch
+
+    // The sampling event: true (in FF-view) exactly on the edge where we
+    // latch SDA and leave RAISE_HIGH.
+    logic sample_now;
+    assign sample_now = (st_q == ST_RAISE_HIGH) && scl_high_ok && tick;
+
+    logic done_q;
+    always_ff @(posedge clk or negedge rst_n)
+        if (!rst_n) done_q <= 1'b0;
+        else        done_q <= sample_now;
+
+    assign done = done_q;   // 1-cycle pulse, visible the same edge rx_bit latches
+
+
 
     // ----------------------------
     // Sequential state + registers (the "commit on clock edge")
@@ -187,7 +207,7 @@ module i2c_bit_prim #(
             end
 
             // Sample SDA exactly at the completion event
-            if (done) begin
+            if (sample_now) begin
                 rx_bit <= sda_sync;
             end
         end
